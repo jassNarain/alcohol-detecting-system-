@@ -1,0 +1,95 @@
+#include <LiquidCrystal.h>
+#include <SoftwareSerial.h>
+#include <TinyGPS.h>
+String myindex = "1"; // this number is incremented as we increase the number of GPS modules. 
+// let's say if you are using 2 GPS modules, then we will use the same programming but will change the index number to 1, for third nodemcu module we change it to 2 and so on. 
+String mylong = ""; // for storing the longittude value
+String mylati = ""; // for storing the latitude value
+String myvalue = "abc"; 
+int state = 0;
+const int pin = 11;
+float gpslat, gpslon;
+char buff[10];
+String textForSMS;
+
+TinyGPS gps;
+SoftwareSerial sgps(4, 5);// gps RX with Pin 5,Tx with Pin 4
+SoftwareSerial sgsm(2, 3); //Gsm RX with Pin 3 , Tx with Pin 2
+LiquidCrystal lcd(6,7,8,9,10,12);
+void setup()
+{
+  sgsm.begin(9600);
+  sgps.begin(9600);
+  lcd.begin(16,2);
+  Serial.begin(9600);//nodemcu rx with tx of arduino and tx of nodemcu with rx of arduino
+  pinMode(pin,INPUT);
+  pinMode(13,OUTPUT);
+  digitalWrite(13,0);
+        lcd.print("Alcohol Based ");
+      lcd.setCursor(0,1);
+      lcd.print("GPS Detection");
+      delay(3000);
+      lcd.clear();
+}
+
+
+void loop()
+{
+  while (sgps.available())
+  {
+    int c = sgps.read();
+    if (gps.encode(c))
+    {
+      gps.f_get_position(&gpslat, &gpslon);
+    }
+  }
+
+  
+ 
+
+      lcd.print("Latitude:");
+      lcd.print(gpslat, 6);
+      lcd.setCursor(0,1);
+      lcd.print("Longitude:");
+      lcd.print(gpslon ,6);
+      lcd.setCursor(0,0);
+      lcd.print("Latitude:");
+      lcd.print(gpslat, 6);
+    if (digitalRead(pin) == LOW && state == 0) {
+      digitalWrite(13,1);
+      lcd.setCursor(0,0);
+      lcd.print("Your Location is");
+      lcd.setCursor(0,1);
+      lcd.print(" being  shared  ");
+      
+      sgsm.print("\r");
+      delay(500);
+      sgsm.print("AT+CMGF=1\r");
+      delay(500);
+      /*Replace XXXXXXXXXX to 10 digit mobile number &
+        ZZ to 2 digit country code*/
+      sgsm.print("AT+CMGS=\"+16476491446\"\r");
+      delay(500);
+      //The text of the message to be sent.
+      sgsm.print("Caution!! Drunk Driver detected at Location:");
+       sgsm.print("https://www.google.com/maps/?q=");
+      sgsm.print(gpslat, 6);
+      sgsm.print(",");
+      sgsm.print(gpslon, 6);
+      sgsm.print("  Take immediate action");x
+      delay(500);
+      sgsm.write(0x1A);
+      delay(500);
+  mylati = dtostrf(gpslat, 3, 6, buff);
+  mylong = dtostrf(gpslon, 3, 6, buff);
+      textForSMS = textForSMS + myindex + "," + mylati + "," + mylong + "," + myvalue +","; 
+      Serial.println(textForSMS);//send it to nodemcu
+      textForSMS = "";
+      state = 1;
+     // delay(5000);
+     
+    }
+  if (digitalRead(pin) == HIGH) {
+      state = 0;
+    }
+  }
